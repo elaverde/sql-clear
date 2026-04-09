@@ -1,0 +1,31 @@
+{
+  "name": "sql-string-cleaner",
+  "displayName": "SQL String Cleaner",
+  "description": "Limpia cadenas de texto SQL y extrae el SQL puro desde concatenaciones de strings",
+  "version": "1.0.1",
+  "publisher": "sql-tools",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sqlCleaner.copyCleanSQL",
+        "title": "Copiar SQL limpio al portapapeles",
+        "category": "SQL Cleaner"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "sqlCleaner.copyCleanSQL",
+          "when": "editorHasSelection",
+          "group": "9_cutcopypaste@1"
+        }
+      ]
+    }
+  }
+}
