@@ -3,7 +3,12 @@
   "displayName": "SQL String Cleaner",
   "description": "Limpia cadenas de texto SQL y extrae el SQL puro desde concatenaciones de strings",
   "version": "1.0.1",
+  "icon": "assets/logo.png",
   "publisher": "sql-tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elaverde/sql-clear.git"
+  },
   "engines": {
     "vscode": "^1.74.0"
   },

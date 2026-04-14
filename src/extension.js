@@ -20,66 +20,32 @@ function cleanSQLString(text) {
   }
 
   let combined = fragments.join("");
-  combined = combined.replace(/@bind/g, "");
-  combined = combined.replace(/@const,[A-Z_a-z0-9]+;?/g, "");
-  combined = combined.replace(/@if,[^;@]+;?/g, "");
+  // Eliminar tokens de control (@token, @token,val; @token; etc.)
   combined = combined.replace(/@[A-Za-z_]+(?:,[^;@]*)?;?/g, "");
 
   // Recolectar variables para declarar, sin repetir nombres
   const variables = [];
   const declared = new Set();
 
-  // #num,VAR;  => @VAR INT = 123
-  combined = combined.replace(/#num,([A-Z_a-z0-9]+);/g, (m, v) => {
-    if (!declared.has(v)) {
-      variables.push({ name: v, type: "INT", value: "123" });
-      declared.add(v);
-    }
-    return `@${v}`;
-  });
-  // #data,VAR; => @VAR VARCHAR(100) = 'demo'
-  combined = combined.replace(/#data,([A-Z_a-z0-9]+);/g, (m, v) => {
-    if (!declared.has(v)) {
-      variables.push({ name: v, type: "VARCHAR(100)", value: "'demo'" });
-      declared.add(v);
-    }
-    return `@${v}`;
-  });
-  // #like,VAR; => LIKE @VAR y declara solo una vez
-  combined = combined.replace(/#like,([A-Z_a-z0-9]+);/g, (m, v) => {
-    if (!declared.has(v)) {
-      variables.push({ name: v, type: "VARCHAR(100)", value: "'%ejemplo%'" });
-      declared.add(v);
-    }
-    return `LIKE @${v}`;
-  });
-  // #numSession,VAR; => @VAR VARCHAR(100) = 'demo'
-  combined = combined.replace(/#numSession,([A-Z_a-z0-9]+);/g, (m, v) => {
-    if (!declared.has(v)) {
-      variables.push({ name: v, type: "VARCHAR(100)", value: "'demo'" });
-      declared.add(v);
-    }
-    return `@${v}`;
-  });
-  // #fecha,VAR; => @VAR DATE = '2024-01-01'
-  combined = combined.replace(/#fecha,([A-Z_a-z0-9]+);/g, (m, v) => {
-    if (!declared.has(v)) {
-      variables.push({ name: v, type: "DATE", value: "'2024-01-01'" });
-      declared.add(v);
-    }
-    return `@${v}`;
-  });
-  // #listData,VAR; o #listData,VAR,¦; => IN (@VAR), soporta NOT(...)
-  combined = combined.replace(
-    /#listData,([A-Z_a-z0-9]+)(?:,[^;]*)?;/g,
-    (m, v) => {
+  const variableMetadata = [
+    { regex: /#num,([A-Z_a-z0-9]+);/gi, type: "INT", value: "123" },
+    { regex: /#data,([A-Z_a-z0-9]+);/gi, type: "VARCHAR(100)", value: "'demo'" },
+    { regex: /#like,([A-Z_a-z0-9]+);/gi, type: "VARCHAR(100)", value: "'%ejemplo%'", prefix: "LIKE " },
+    { regex: /#numSession,([A-Z_a-z0-9]+);/gi, type: "VARCHAR(100)", value: "'demo'" },
+    { regex: /#fecha,([A-Z_a-z0-9]+);/gi, type: "DATE", value: "'2024-01-01'" },
+    { regex: /#listData,([A-Z_a-z0-9]+)(?:,[^;]*)?;/gi, type: "VARCHAR(200)", value: "'A,B,C'", prefix: "IN " }
+  ];
+
+  variableMetadata.forEach(meta => {
+    combined = combined.replace(meta.regex, (m, v) => {
       if (!declared.has(v)) {
-        variables.push({ name: v, type: "VARCHAR(200)", value: "'A,B,C'" });
+        variables.push({ name: v, type: meta.type, value: meta.value });
         declared.add(v);
       }
-      return `IN (@${v})`;
-    },
-  );
+      const p = meta.prefix || "@";
+      return p.includes("@") ? p.replace("@", `@${v}`) : `${p}@${v}`;
+    });
+  });
 
   combined = combined.replace(/[ \t]{2,}/g, " ").trim();
 
@@ -174,7 +140,7 @@ function extractThisFrom(lines, fromLine) {
   let fromClean = fragments.join("").trim();
 
   // Eliminar tokens especiales como #seq;
-  fromClean = fromClean.replace(/#[a-z]+,[^;]*;/g, "").replace(/#[a-z]+;/g, "");
+  fromClean = fromClean.replace(/#[a-z]+,[^;]*;/gi, "").replace(/#[a-z]+;/gi, "");
   fromClean = fromClean.replace(/[ \t]{2,}/g, " ").trim();
 
   if (!fromClean || !fromClean.toUpperCase().includes("FROM")) return null;

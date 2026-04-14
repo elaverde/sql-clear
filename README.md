@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="https://i.ibb.co/215wns3x/logo.png" width="128" alt="Logo"/>
+</p>
 # SQL String Cleaner — Extensión VS Code
 
 Extrae SQL puro desde cadenas concatenadas en JavaScript/TypeScript con un solo clic derecho.
@@ -10,14 +13,24 @@ Convierte esto:
 ```js
 const BUILD_FROM_TIPO_CD_SUBTIPO_CD = "@bind" + "@const,THIS_FROM;" + "@const,WHERE_COND;" +
   "@const,WHERE_AND; (H.BORRADO_FL IS NULL OR H.BORRADO_FL = 0) AND H.TIPO_PROD_CD" +
-  " = #data,TIPO_PROD_CD; AND H.SUBTIPO_PROD_CD = #data,SUBTIPO_PROD_CD; " +
+  " = #DATA,TIPO_PROD_CD; AND H.SUBTIPO_PROD_CD = #data,SUBTIPO_PROD_CD; " +
   "@const,GROUP_BY;" + "@const,HAVING;" + "@const,ORDER_BY;" + ""
 ```
 
 En esto (limpio en el portapapeles):
 ```sql
-(H.BORRADO_FL IS NULL OR H.BORRADO_FL = 0) AND H.TIPO_PROD_CD = #data,TIPO_PROD_CD; AND H.SUBTIPO_PROD_CD = #data,SUBTIPO_PROD_CD;
+DECLARE @TIPO_PROD_CD VARCHAR(100) = 'demo';
+DECLARE @SUBTIPO_PROD_CD VARCHAR(100) = 'demo';
+
+SELECT * FROM TABLA P
+WHERE
+    (H.BORRADO_FL IS NULL OR H.BORRADO_FL = 0) AND H.TIPO_PROD_CD = @TIPO_PROD_CD AND H.SUBTIPO_PROD_CD = @SUBTIPO_PROD_CD
 ```
+
+**Novedades:**
+- Soporte para variables en mayúsculas (`#NUM`, `#DATA`, etc.).
+- Detección automática de tabla y alias.
+- Reconstrucción de `SELECT * FROM`.
 
 **Uso:** Selecciona el texto → Clic derecho → **"Copiar SQL limpio"** ✅
 
@@ -26,13 +39,14 @@ En esto (limpio en el portapapeles):
 ## Estructura del proyecto
 
 ```
-extension/
+SqlClear/
 ├── .vscode/
-│   └── launch.json       ← configuración para F5 / modo desarrollo
+│   └── launch.json       ← configuración para F5
+├── assets/
+│   └── logo.png          ← logo de la extensión
 ├── src/
-│   └── extension.js      ← lógica principal (aquí haces cambios)
-├── test.js               ← pruebas rápidas sin VS Code
-├── package.json          ← configuración de la extensión
+│   └── extension.js      ← lógica principal
+├── package.json          ← configuración
 └── README.md
 ```
 
@@ -44,7 +58,7 @@ extension/
 2. `Ctrl+Shift+X` → Extensiones
 3. Clic en los `...` (tres puntos arriba a la derecha)
 4. **"Install from VSIX..."**
-5. Selecciona el archivo `sql-string-cleaner-1.0.0.vsix`
+5. Selecciona el archivo `assets/sql-string-cleaner-1.0.1.vsix`
 
 ---
 
@@ -52,7 +66,7 @@ extension/
 
 ### Requisito: archivo `.vscode/launch.json`
 
-Crea la carpeta `.vscode/` dentro de `extension/` con este archivo:
+Crea la carpeta `.vscode/` dentro de la raíz con este archivo:
 
 ```json
 {
@@ -72,94 +86,44 @@ Crea la carpeta `.vscode/` dentro de `extension/` con este archivo:
 
 ### Pasos para desarrollar
 
-1. Abre la carpeta `extension/` en VS Code
-   ```bash
-   code "C:\ruta\a\tu\carpeta\extension"
-   ```
-2. Presiona **F5** → se abre una segunda ventana **"[Extension Development Host]"**
-3. En esa segunda ventana prueba la extensión normalmente
-4. Cuando hagas cambios en el código → guarda con `Ctrl+S`
-5. Recarga con `Ctrl+Shift+F5` o en la segunda ventana: `Ctrl+Shift+P` → **"Reload Window"**
-
-> ⚠️ Abre siempre la carpeta que contiene `package.json` directamente, no una carpeta padre.
-
----
-
-## Testear la lógica sin VS Code
-
-Edita el archivo `test.js` con tus cadenas reales:
-
-```js
-const test = `const MI_QUERY = "@bind" + "@const,THIS_FROM;" + " tu SQL aqui " + "@const,ORDER_BY;"`;
-
-console.log(cleanSQLString(test));
-```
-
-Ejecuta desde terminal:
-
-```bash
-node test.js
-```
-
-Ves el resultado al instante. Ideal para probar nuevos patrones antes de modificar `extension.js`.
+1. Abre la carpeta del proyecto en VS Code.
+2. Presiona **F5** → se abre una segunda ventana **"[Extension Development Host]"**.
+3. En esa segunda ventana prueba la extensión normalmente.
+4. Cuando hagas cambios en el código → guarda con `Ctrl+S`.
+5. Recarga la ventana de desarrollo con `Ctrl+Shift+F5`.
 
 ---
 
 ## Empaquetar (.vsix) para distribuir
 
-### Primera vez — instalar vsce
-
-```bash
-npm install -g @vscode/vsce --force
-```
-
-> Si da error de permisos, usa `npx` directamente (no requiere instalación global).
-
-### Generar el .vsix
-
-Desde dentro de la carpeta `extension/`:
+Desde la terminal en la raíz del proyecto:
 
 ```bash
 npx @vscode/vsce package --allow-missing-repository
 ```
 
-Genera el archivo `sql-string-cleaner-1.0.0.vsix` en esa misma carpeta.
+Genera el archivo `sql-string-cleaner-1.0.1.vsix`.
 
 ---
 
 ## Cómo modificar la lógica de limpieza
 
-Todo está en `src/extension.js` dentro de la función `cleanSQLString()`. Los pasos son:
+La lógica de las variables está centralizada en `src/extension.js` dentro de la constante `variableMetadata`. 
 
-**Paso 1** — Elimina la declaración de variable (`const X =`)
-
-**Paso 2** — Extrae todos los strings entre comillas
-
-**Paso 3** — Elimina los tokens de control:
-```js
-combined = combined.replace(/@bind/g, '');
-combined = combined.replace(/@const,[A-Z_a-z0-9]+;?/g, '');
-combined = combined.replace(/@if,[^;@]+;?/g, '');
-combined = combined.replace(/@[A-Za-z_]+(?:,[^;@]*)?;?/g, ''); // cualquier @TOKEN
-```
-
-> Para agregar nuevos tokens a eliminar, añade una línea `.replace()` siguiendo el mismo patrón.
-
-**Paso 4** — Limpia espacios múltiples y devuelve el SQL limpio
-
-### Ejemplo: agregar soporte para `@loop`
+Para agregar un nuevo tipo de variable (por ejemplo `#bool`), solo añade un objeto al array:
 
 ```js
-// Añade esta línea después de las existentes:
-combined = combined.replace(/@loop,[A-Z_a-z0-9]+;?/g, '');
+{ 
+  regex: /#bool,([A-Z_a-z0-9]+);/gi, 
+  type: "BIT", 
+  value: "1" 
+}
 ```
 
-### Cambiar el texto del menú contextual
-
-En `package.json`, busca y edita:
-```json
-"title": "Copiar SQL limpio"
-```
+La extensión se encargará automáticamente de:
+1. Buscar el patrón (insensible a mayúsculas).
+2. Declarar la variable arriba del SQL.
+3. Reemplazar el marcador por `@NombreVariable` en el cuerpo del SQL.
 
 ---
 
@@ -168,7 +132,6 @@ En `package.json`, busca y edita:
 | Error | Causa | Solución |
 |-------|-------|----------|
 | `vsce` no se reconoce | No está en el PATH | Usar `npx @vscode/vsce package` |
-| `EEXIST: file already exists` | Instalación incompleta de vsce | `npm install -g @vscode/vsce --force` |
 | `Extension entrypoint missing` | `main` en package.json apunta mal | Verificar que diga `"./src/extension.js"` |
-| F5 no abre segunda ventana | Falta `launch.json` | Crear `.vscode/launch.json` (ver sección desarrollo) |
+| F5 no abre segunda ventana | Falta `launch.json` | Crear `.vscode/launch.json` |
 | Comando no aparece en clic derecho | No hay texto seleccionado | Seleccionar texto antes de hacer clic derecho |
